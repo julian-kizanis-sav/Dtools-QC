@@ -53,33 +53,33 @@ def Dup(dup, index_1, level):
 	return dup
 
 def Dup_ini():
-	dup = pd.DataFrame(columns = {'Model Index',	'Model Number',\
+	dup = pd.DataFrame(columns = {'Model Index','Model Number','Keep','Used',\
 									 'Best Match Ratio',\
-									 'Duplicate[0]', 'Match Ratio[0]',\
+									 'Duplicate[0]', 'Keep[0]','Used[0]', 'Match Ratio[0]',\
 									 'Partial Match Ratio[0]','Index[0]',\
-									 'Duplicate[1]','Match Ratio[1]',\
+									 'Duplicate[1]', 'Keep[1]','Used[1]','Match Ratio[1]',\
 									 'Partial Match Ratio[1]','Index[1]',\
-									 'Duplicate[2]','Match Ratio[2]',\
+									 'Duplicate[2]', 'Keep[2]','Used[2]','Match Ratio[2]',\
 									 'Partial Match Ratio[2]','Index[2]'})
-	return dup[['Model Index',	'Model Number',\
+	return dup[['Model Index','Model Number','Keep','Used',\
 				 'Best Match Ratio',\
-				 'Duplicate[0]', 'Match Ratio[0]',\
+				 'Duplicate[0]', 'Keep[0]','Used[0]', 'Match Ratio[0]',\
 				 'Partial Match Ratio[0]','Index[0]',\
-				 'Duplicate[1]','Match Ratio[1]',\
+				 'Duplicate[1]', 'Keep[1]','Used[1]','Match Ratio[1]',\
 				 'Partial Match Ratio[1]','Index[1]',\
-				 'Duplicate[2]','Match Ratio[2]',\
+				 'Duplicate[2]', 'Keep[2]','Used[2]','Match Ratio[2]',\
 				 'Partial Match Ratio[2]','Index[2]']]
 	
 	
 	
 def Dup_new_row(dup):
 	return dup.append({'Model Index':index_1,\
-					 'Model Number':model_1,'Best Match Ratio':0,\
-					 'Duplicate[0]':'', 'Match Ratio[0]':0,\
+					 'Model Number':model_1, 'Keep':True,'Best Match Ratio':0,\
+					 'Duplicate[0]':'', 'Keep[0]':True,'Match Ratio[0]':0,\
 					 'Partial Match Ratio[0]':0,'Index[0]':0,\
-					 'Duplicate[1]':'','Match Ratio[1]':0,\
+					 'Duplicate[1]':'', 'Keep[1]':True,'Match Ratio[1]':0,\
 					 'Partial Match Ratio[1]':0,'Index[1]':0,\
-					 'Duplicate[2]':'','Match Ratio[2]':0,\
+					 'Duplicate[2]':'', 'Keep[2]':True,'Match Ratio[2]':0,\
 					 'Partial Match Ratio[2]':0,'Index[2]':0},\
 						ignore_index=True)
 
@@ -98,12 +98,48 @@ def insertion_sort(dup):
         dup.loc[pos,:] = dup.loc[i,:]
 
     return dup
+def remove_duplicates(dup):
+	remove = []
+	i_r = 0
+	l = range(len(dup.loc[:,'Model Number']))
+	for i_1 in l:
+		for i_2 in l[i_1:]:
+			if dup.loc[i_1, 'Model Number'] == dup.loc[i_2, 'Duplicate[0]']\
+			and dup.loc[i_2, 'Model Number'] == dup.loc[i_1, 'Duplicate[0]']:
+				print(f"Redundancy Found at: {i_2}")
+				remove.insert(i_r, i_1) 
+				i_r += 1
+#	for i in l:
+#		dup = dup.drop(remove[i])
+	return dup.drop(remove)
 
-
+def find_if_used(dup, use):
+	for level in [0,1,2]:
+		for i, m_d in enumerate(dup.loc[:,f'Duplicate[{level}]']):
+			for m_u in use.loc[:,'Model']:
+				if m_d == m_u:
+					dup.loc[i,f'Used[{level}]'] = True
+					print('Used Models Found:{}'.format(i), end='\r')
+					break
+				else:
+					dup.loc[i,f'Used[{level}]'] = False
+					
+	for i, m_d in enumerate(dup.loc[:,f'Model Number']):
+		for m_u in use.loc[:,'Model']:
+			if m_d == m_u:
+				dup.loc[i,'Used'] = True
+				print('Used Models Found:{}'.format(i), end='\r')
+				break
+			else:
+				dup.loc[i,'Used'] = False		
+	return dup			
+				
 dt_all = pd.read_csv("Models.csv")	#imports the csv file into a dataframe	
+used = pd.read_csv("Used.csv")
 
 print("('m':Match, 'p':partial, 'h':hybrid, 'a':all)")
-match_type = input("Enter Match Type: ")
+#match_type = input("Enter Match Type: ")
+match_type = 'h'
 
 if match_type == 'm' or match_type == 'a':
 	Duplicates_Match = Dup_ini()
@@ -111,7 +147,6 @@ if match_type == 'p' or match_type == 'a':
 	Duplicates_Partial = Dup_ini()
 if match_type == 'h' or match_type == 'a':
 	Duplicates_Hybrid = Dup_ini()	
-
 
 
 #index_1 = 0
@@ -125,8 +160,14 @@ for index_1, model_1 in enumerate(dt_all.loc[:,"Model"]):
 	
 	for index_2, model_2 in enumerate(dt_all.loc[:,"Model"]):
 		if index_1 != index_2:
-			temp_partial_match_ratio = fuzz.partial_ratio(model_1.lower(), model_2.lower())
-			temp_match_ratio = fuzz.ratio(model_1.lower(), model_2.lower())
+			temp_partial_match_ratio = fuzz.partial_ratio(\
+			 model_1.lower().strip(' -_()/'), \
+			 model_2.lower().strip(' -_()/'))
+			
+			temp_match_ratio = fuzz.ratio(\
+			 model_1.lower().strip(' -_()/'), \
+			 model_2.lower().strip(' -_()/'))
+			
 			if match_type == 'p' or match_type == 'a':
 				if temp_partial_match_ratio > Duplicates_Partial.loc[index_1, 'Partial Match Ratio[0]']:
 					Duplicates_Partial = Dup(Duplicates_Partial, index_1, 0)
@@ -175,26 +216,37 @@ for index_1, model_1 in enumerate(dt_all.loc[:,"Model"]):
 	if match_type == 'h' or match_type == 'a':	
 		hmr_h = (Duplicates_Hybrid.loc[index_1, 'Match Ratio[0]'] * Duplicates_Hybrid.loc[index_1, 'Partial Match Ratio[0]'])/100	
 		Duplicates_Hybrid.loc[index_1, 'Best Match Ratio'] = hmr_h
-		Duplicates_Hybrid = Duplicates_Hybrid.sort_values('Best Match Ratio',ascending=False)
 		print(f"{model_1}\t\t{Duplicates_Hybrid.loc[index_1, 'Duplicate[0]']}\t{hmr_h}")	
-		export_csv = Duplicates_Hybrid.to_csv ('Duplicates_Hybrid.csv', header=True)
-		
-	if match_type == 'm' or match_type == 'a':				
+			
+	if match_type == 'm' or match_type == 'a':	
 		hmr_m = (Duplicates_Match.loc[index_1, 'Match Ratio[0]'] * Duplicates_Match.loc[index_1, 'Partial Match Ratio[0]'])/100
 		Duplicates_Match.loc[index_1, 'Best Match Ratio'] = hmr_m
-		insertion_sort(Duplicates_Match)
 		print(f"{model_1}\t\t{Duplicates_Match.loc[index_1, 'Duplicate[0]']}\t{hmr_m}")	
-		export_csv = Duplicates_Match.to_csv ('Duplicates_Match.csv', header=True)
 		
 	if match_type == 'p' or match_type == 'a':
 		hmr_p = (Duplicates_Partial.loc[index_1, 'Match Ratio[0]'] * Duplicates_Partial.loc[index_1, 'Partial Match Ratio[0]'])/100
 		Duplicates_Partial.loc[index_1, 'Best Match Ratio'] = hmr_p
-		insertion_sort(Duplicates_Partial)				
 		print(f"{model_1}\t\t{Duplicates_Partial.loc[index_1, 'Duplicate[0]']}\t{hmr_p}")
-		export_csv = Duplicates_Partial.to_csv ('Duplicates_Partial.csv', header=True)		
-				
-				
-				
+
+			
+if match_type == 'h' or match_type == 'a':	
+	Duplicates_Hybrid = remove_duplicates(Duplicates_Hybrid)
+	find_if_used(Duplicates_Hybrid, used)
+	Duplicates_Hybrid = Duplicates_Hybrid.sort_values('Best Match Ratio',ascending=False)	
+	export_csv = Duplicates_Hybrid.to_csv ('Duplicates_Hybrid.csv', header=True)
+		
+if match_type == 'm' or match_type == 'a':	
+	Duplicates_Match = remove_duplicates(Duplicates_Match)			
+	find_if_used(Duplicates_Match, used)
+	Duplicates_Match = Duplicates_Match.sort_values('Best Match Ratio',ascending=False)	
+	export_csv = Duplicates_Match.to_csv ('Duplicates_Match.csv', header=True)
+	
+if match_type == 'p' or match_type == 'a':
+	Duplicates_Partial = remove_duplicates(Duplicates_Partial)
+	find_if_used(Duplicates_Partial, used)
+	Duplicates_Partial = Duplicates_Partial.sort_values('Best Match Ratio',ascending=False)				
+	export_csv = Duplicates_Partial.to_csv ('Duplicates_Partial.csv', header=True)					
+			
 				
 				
 				
